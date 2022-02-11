@@ -19,6 +19,7 @@ import OutputFile from "./output/File/config.js";
 import OutputHighlightedText from "./output/HighlightedText/config.js";
 import OutputHtml from "./output/Html/config.js";
 import OutputImage from "./output/Image/config.js";
+import OutputModel3D from "./output/Model3D/config.js";
 import OutputJson from "./output/Json/config.js";
 import OutputLabel from "./output/Label/config.js";
 import OutputTextbox from "./output/Textbox/config.js";
@@ -49,6 +50,7 @@ export const output_component_map = {
 	highlightedtext: OutputHighlightedText,
 	html: OutputHtml,
 	image: OutputImage,
+	model3d: OutputModel3D,
 	json: OutputJson,
 	label: OutputLabel,
 	textbox: OutputTextbox,

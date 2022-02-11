@@ -319,6 +319,59 @@ class Video(OutputComponent):
     def restore_flagged(self, dir, data, encryption_key):
         return self.restore_flagged_file(dir, data, encryption_key)
 
+class Model3D(OutputComponent):
+    '''
+    Used for 3d model output.
+    Output type: filepath
+    Demos: hello_mesh
+    '''
+
+    def __init__(self, clear_color=None, label=None):
+        '''
+        Parameters:
+        label (str): component name in interface.
+        '''
+        super().__init__(label)
+        self.clear_color = clear_color
+
+    @classmethod
+    def get_shortcut_implementations(cls):
+        return {
+            "model3d": {},
+        }
+
+    def postprocess(self, y):
+        """
+        Parameters:
+        y (str): path to the model
+        Returns:
+        (str): file name
+        (str): file extension
+        (str): base64 url data
+        """
+        
+        return processing_utils.encode_file_to_base64(y)
+
+        if self.clear_color is None:
+            self.clear_color = [0.2, 0.2, 0.2]
+
+        return {
+            "name": os.path.basename(y),
+            "extension": os.path.splitext(y)[1],
+            "clearColor": self.clear_color,
+            "data": processing_utils.encode_file_to_base64(y),
+        }
+
+    def deserialize(self, x):
+        return processing_utils.decode_base64_to_file(x).name
+
+    def save_flagged(self, dir, label, data, encryption_key):
+        """
+        Returns: (str) path to model file
+        """
+        return self.save_flagged_file(dir, label, data['data'], encryption_key)
+
+
 
 class KeyValues(OutputComponent):
     """
@@ -834,4 +887,7 @@ def get_output_instance(iface: Interface):
         raise ValueError(
             "Output interface must be of type `str` or `dict` or"
             "`OutputComponent` but is {}".format(iface)
+            
         )
+
+
