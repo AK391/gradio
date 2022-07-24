@@ -6,11 +6,10 @@ import unittest.mock as mock
 import urllib
 import warnings
 
-import aiohttp
 from fastapi.testclient import TestClient
 
 import gradio as gr
-from gradio import Interface, flagging, networking
+from gradio import Interface, networking
 
 os.environ["GRADIO_ANALYTICS_ENABLED"] = "False"
 
@@ -36,14 +35,22 @@ class TestPort(unittest.TestCase):
             warnings.warn("Unable to test, no ports available")
 
 
-class TestInterfaceCustomParameters(unittest.TestCase):
-    def test_show_error(self):
+class TestInterfaceErrors(unittest.TestCase):
+    def test_processing_error(self):
         io = Interface(lambda x: 1 / x, "number", "number")
         app, _, _ = io.launch(show_error=True, prevent_thread_lock=True)
         client = TestClient(app)
-        response = client.post("/api/predict/", json={"data": [0]})
+        response = client.post("/api/predict/", json={"data": [0], "fn_index": 0})
         self.assertEqual(response.status_code, 500)
         self.assertTrue("error" in response.json())
+        io.close()
+
+    def test_validation_error(self):
+        io = Interface(lambda x: 1 / x, "number", "number")
+        app, _, _ = io.launch(show_error=True, prevent_thread_lock=True)
+        client = TestClient(app)
+        response = client.post("/api/predict/", json={"fn_index": [0]})
+        self.assertEqual(response.status_code, 422)
         io.close()
 
 
@@ -60,6 +67,7 @@ class TestStartServer(unittest.TestCase):
             networking.INITIAL_PORT_VALUE,
             networking.INITIAL_PORT_VALUE + networking.TRY_NUM_PORTS,
         )
+        io.enable_queue = False
         _, local_path, _, server = networking.start_server(io, server_port=port)
         url = urllib.parse.urlparse(local_path)
         self.assertEquals(url.scheme, "http")

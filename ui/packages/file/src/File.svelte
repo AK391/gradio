@@ -1,38 +1,65 @@
 <script lang="ts">
 	import type { FileData } from "@gradio/upload";
-	import { prettyBytes } from "./utils";
+	import { BlockLabel } from "@gradio/atoms";
+	import {
+		display_file_name,
+		download_files,
+		display_file_size
+	} from "./utils";
+	import { File } from "@gradio/icons";
 
-	export let value: FileData;
-	export let style: string = "";
+	export let value: FileData | null;
+	export let label: string;
+	export let show_label: boolean;
+	export let file_count: string;
 </script>
 
-<a
-	class="output-file w-full h-full flex flex-row flex-wrap justify-center items-center relative"
-	href={value.data}
-	download={value.name}
->
-	<svg
-		xmlns="http://www.w3.org/2000/svg"
-		class="h-10 w-1/5"
-		fill="none"
-		viewBox="0 0 24 24"
-		stroke="currentColor"
-	>
-		<path
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			stroke-width="2"
-			d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-		/>
-	</svg>
-	<div class="file-name w-3/5 text-4xl p-6 break-all">{value.name}</div>
-	<div class="text-2xl p-2">
-		{isNaN(value.size || NaN) ? "" : prettyBytes(value.size || 0)}
-	</div>
-</a>
+<BlockLabel {show_label} Icon={File} label={label || "File"} />
 
-<style lang="postcss">
-	.output-file[theme="default"] {
-		@apply h-60 hover:text-gray-500;
-	}
-</style>
+{#if value}
+	<div
+		class="file-preview overflow-y-scroll w-full max-h-60 flex flex-col justify-between mt-7 mb-7 dark:text-slate-200"
+	>
+		{#if Array.isArray(value)}
+			{#each value as file}
+				<div class="flex flex-row w-full justify-between">
+					<div class="file-name p-2">
+						{display_file_name(file)}
+					</div>
+					<div class="file-size  p-2">
+						{display_file_size(file)}
+					</div>
+					<div class="file-size p-2 hover:underline">
+						<a
+							href={download_files(file)}
+							download
+							class="text-indigo-600 hover:underline dark:text-indigo-300"
+							>Download</a
+						>
+					</div>
+				</div>
+			{/each}
+		{:else}
+			<div class="flex flex-row">
+				<div class="file-name w-5/12 p-2">
+					{display_file_name(value)}
+				</div>
+				<div class="file-size w-3/12  p-2">
+					{display_file_size(value)}
+				</div>
+				<div class="file-size w-3/12 p-2 hover:underline">
+					<a
+						href={download_files(value)}
+						download
+						class="text-indigo-600 hover:underline dark:text-indigo-300"
+						>Download</a
+					>
+				</div>
+			</div>
+		{/if}
+	</div>
+{:else}
+	<div class="h-full min-h-[15rem] flex justify-center items-center">
+		<div class="h-5 dark:text-white opacity-50"><File /></div>
+	</div>
+{/if}

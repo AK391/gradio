@@ -1,18 +1,47 @@
 <script lang="ts">
+	import { onDestroy } from "svelte";
+	import { fade } from "svelte/transition";
 	import JSONNode from "./JSONNode.svelte";
 
 	export let value: any = {};
-	export let style: string = "";
+	export let copy_to_clipboard: string = "copy to clipboard";
+
+	let copied = false;
+	let timer: NodeJS.Timeout;
+
+	function copy_feedback() {
+		copied = true;
+		if (timer) clearTimeout(timer);
+		timer = setTimeout(() => {
+			copied = false;
+		}, 1000);
+	}
+
+	async function handle_copy() {
+		if ("clipboard" in navigator) {
+			await navigator.clipboard.writeText(JSON.stringify(value, null, 2));
+			copy_feedback();
+		}
+	}
+
+	onDestroy(() => {
+		if (timer) clearTimeout(timer);
+	});
 </script>
 
-<div
-	class="relative overflow-hidden output-json font-mono leading-relaxed w-full border py-2 px-2.5 rounded-lg"
+<button
+	on:click={handle_copy}
+	class="transition-color overflow-hidden font-sans absolute right-0 top-0  rounded-bl-lg shadow-sm text-xs text-gray-500 flex items-center  bg-white z-20 border-l border-b border-gray-100 dark:text-slate-200"
 >
-	<button
-		class="font-sans absolute right-0 top-0 py-1 px-2 rounded-bl-lg shadow-sm text-xs text-gray-500 flex items-center pointer-events-none bg-white z-20 border-l border-b border-gray-100"
-	>
-		copy to clipboard
-	</button>
+	<span class="py-1 px-2">{copy_to_clipboard}</span>
+	{#if copied}
+		<span
+			in:fade={{ duration: 100 }}
+			out:fade={{ duration: 350 }}
+			class="font-bold dark:text-green-400 text-green-600 py-1 px-2 absolute block w-full text-left bg-white dark:bg-gray-900"
+			>COPIED</span
+		>
+	{/if}
+</button>
 
-	<JSONNode {value} depth={0} />
-</div>
+<JSONNode {value} depth={0} />

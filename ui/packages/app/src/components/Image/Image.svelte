@@ -1,38 +1,65 @@
 <script lang="ts">
 	import { createEventDispatcher } from "svelte";
 	import { Image, StaticImage } from "@gradio/image";
+	import { Block } from "@gradio/atoms";
 	import { _ } from "svelte-i18n";
+	import { Component as StatusTracker } from "../StatusTracker/";
+	import type { LoadingStatus } from "../StatusTracker/types";
+	import type { Styles } from "@gradio/utils";
 
+	export let elem_id: string = "";
+	export let visible: boolean = true;
 	export let value: null | string = null;
-	export let default_value: null | string = null;
-	export let style: string = "";
 	export let source: "canvas" | "webcam" | "upload" = "upload";
 	export let tool: "editor" | "select" = "editor";
 	export let label: string;
+	export let show_label: boolean;
+	export let streaming: boolean;
+	export let pending: boolean;
+	export let style: Styles = {};
+	export let mirror_webcam: boolean;
+
+	export let loading_status: LoadingStatus;
 
 	export let mode: "static" | "dynamic";
 
 	const dispatch = createEventDispatcher<{ change: undefined }>();
 
-	if (default_value) value = default_value;
-
 	$: value, dispatch("change");
+	let dragging: boolean;
 </script>
 
-{#if mode === "static"}
-	<StaticImage {value} {label} {style} />
-{:else}
-	<Image
-		bind:value
-		{style}
-		{source}
-		{tool}
-		on:edit
-		on:clear
-		on:change
-		{label}
-		drop_text={$_("interface.drop_image")}
-		or_text={$_("or")}
-		upload_text={$_("interface.click_to_upload")}
-	/>
-{/if}
+<Block
+	{visible}
+	variant={mode === "dynamic" && value === null && source === "upload"
+		? "dashed"
+		: "solid"}
+	color={dragging ? "green" : "grey"}
+	padding={false}
+	{elem_id}
+	style={{ rounded: style.rounded, height: style.height, width: style.width }}
+>
+	<StatusTracker {...loading_status} />
+	{#if mode === "static"}
+		<StaticImage {value} {label} {show_label} />
+	{:else}
+		<Image
+			bind:value
+			{source}
+			{tool}
+			on:edit
+			on:clear
+			on:change
+			on:stream
+			on:drag={({ detail }) => (dragging = detail)}
+			{label}
+			{show_label}
+			{pending}
+			{streaming}
+			drop_text={$_("interface.drop_image")}
+			or_text={$_("or")}
+			upload_text={$_("interface.click_to_upload")}
+			{mirror_webcam}
+		/>
+	{/if}
+</Block>

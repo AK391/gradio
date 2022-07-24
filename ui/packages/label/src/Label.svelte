@@ -4,21 +4,21 @@
 		confidences?: Array<{ label: string; confidence: number }>;
 	};
 
-	export let style: string = "";
-	export let theme: string = "default";
+	export let show_label: boolean;
 </script>
 
-<div class="output-label" space-y-4 {theme}>
+<div class="output-label">
 	<div
-		class="output-class font-bold text-2xl py-6 px-4 flex-grow flex items-center justify-center"
+		class:sr-only={!show_label}
+		class="output-class font-bold text-2xl py-6 px-4 flex-grow flex items-center justify-center dark:text-slate-200"
 		class:no-confidence={!("confidences" in value)}
 	>
 		{value.label}
 	</div>
-	{#if value.confidences}
+	{#if typeof value === "object" && value.confidences}
 		{#each value.confidences as confidence_set}
 			<div
-				class="flex items-start justify-between font-mono text-sm leading-none group"
+				class="flex items-start justify-between font-mono text-sm leading-none group mb-2 last:mb-0 dark:text-slate-300"
 			>
 				<div class="flex-1">
 					<div

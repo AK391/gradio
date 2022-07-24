@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { createEventDispatcher } from "svelte";
-	import { Block, BlockLabel } from "@gradio/atoms";
+	import { BlockLabel } from "@gradio/atoms";
 	import type { FileData } from "@gradio/upload";
+	import { Video } from "@gradio/icons";
 
-	import video_icon from "./video.svg";
+	import Player from "./Player.svelte";
 
 	export let value: FileData | null = null;
 	export let label: string | undefined = undefined;
-	export let style: string = "";
+	export let show_label: boolean;
 
 	const dispatch = createEventDispatcher<{
 		change: FileData;
@@ -19,23 +20,12 @@
 	$: value && dispatch("change", value);
 </script>
 
-<Block variant={"solid"} color={"grey"} padding={false}>
-	<BlockLabel image={video_icon} label={label || "Video"} />
-	{#if value === null}
-		<div class="min-h-[16rem] flex justify-center items-center">
-			<img src={video_icon} alt="" class="h-6 opacity-20" />
-		</div>
-	{:else}
-		<!-- svelte-ignore a11y-media-has-caption -->
-		<video
-			class="w-full h-full object-contain bg-black"
-			controls
-			playsInline
-			preload="auto"
-			src={value.data}
-			on:play
-			on:pause
-			on:ended
-		/>
-	{/if}
-</Block>
+<BlockLabel {show_label} Icon={Video} label={label || "Video"} />
+{#if value === null}
+	<div class="h-full min-h-[15rem] flex justify-center items-center">
+		<div class="h-5 dark:text-white opacity-50"><Video /></div>
+	</div>
+{:else}
+	<!-- svelte-ignore a11y-media-has-caption -->
+	<Player src={value.data} on:play on:pause on:ended mirror={false} />
+{/if}

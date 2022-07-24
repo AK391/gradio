@@ -1,18 +1,27 @@
 <script lang="ts">
 	import { createEventDispatcher, tick } from "svelte";
-	import { BlockTitle, Block } from "@gradio/atoms";
+	import { get_styles } from "@gradio/utils";
+	import { BlockTitle } from "@gradio/atoms";
+	import type { Styles } from "@gradio/utils";
 
 	export let value: string = "";
+	export let style: Styles = {};
 	export let lines: number = 1;
 	export let placeholder: string = "Type here...";
 	export let label: string;
-	export let style: string = "";
 	export let disabled = false;
-	export let autoheight: boolean = false;
-	export let form_position: "first" | "last" | "mid" | "single" = "single";
+	export let show_label: boolean = true;
+	export let max_lines: number | false;
 
-	const dispatch =
-		createEventDispatcher<{ change: string; submit: undefined }>();
+	let el: HTMLTextAreaElement | HTMLInputElement;
+
+	$: value, el && lines !== max_lines && resize({ target: el });
+	$: handle_change(value);
+
+	const dispatch = createEventDispatcher<{
+		change: string;
+		submit: undefined;
+	}>();
 
 	function handle_change(val: string) {
 		dispatch("change", val);
@@ -27,60 +36,76 @@
 		}
 	}
 
-	$: handle_change(value);
-
-	async function resize(event: Event | { target: HTMLTextAreaElement }) {
+	async function resize(
+		event: Event | { target: HTMLTextAreaElement | HTMLInputElement }
+	) {
 		await tick();
+		if (lines === max_lines) return;
+
+		let max =
+			max_lines === false
+				? false
+				: max_lines === undefined // default
+				? 21 * 11
+				: 21 * (max_lines + 1);
+		let min = 21 * (lines + 1);
 
 		const target = event.target as HTMLTextAreaElement;
 		target.style.height = "1px";
-		target.style.height = +target.scrollHeight + "px";
+
+		let scroll_height;
+		if (max && target.scrollHeight > max) {
+			scroll_height = max;
+		} else if (target.scrollHeight < min) {
+			scroll_height = min;
+		} else {
+			scroll_height = target.scrollHeight;
+		}
+
+		target.style.height = `${scroll_height}px`;
 	}
 
-	function text_area_resize(
-		el: HTMLTextAreaElement,
-		{ enabled, value }: { enabled: boolean; value: string }
-	) {
-		if (!enabled) return;
-
-		el.style.overflow = "hidden";
+	function text_area_resize(el: HTMLTextAreaElement, value: string) {
+		if (lines === max_lines) return;
+		el.style.overflowY = "scroll";
 		el.addEventListener("input", resize);
 
 		if (!value.trim()) return;
 		resize({ target: el });
 
 		return {
-			destroy: () => el.removeEventListener("input", resize),
-			update: () => resize({ target: el })
+			destroy: () => el.removeEventListener("input", resize)
 		};
 	}
+
+	$: ({ classes } = get_styles(style, ["rounded", "border"]));
 </script>
 
-<Block {form_position}>
-	<!-- svelte-ignore a11y-label-has-associated-control -->
-	<label class="block">
-		<BlockTitle>{label}</BlockTitle>
+<!-- svelte-ignore a11y-label-has-associated-control -->
+<label class="block w-full">
+	<BlockTitle {show_label}>{label}</BlockTitle>
 
-		{#if autoheight || lines > 1}
-			<textarea
-				use:text_area_resize={{ enabled: autoheight, value }}
-				class="block gr-box gr-input w-full gr-text-input"
-				bind:value
-				{placeholder}
-				{style}
-				rows={lines}
-				{disabled}
-			/>
-		{:else}
-			<input
-				type="text"
-				class="gr-box gr-input w-full gr-text-input"
-				{placeholder}
-				bind:value
-				on:keypress={handle_keypress}
-				{style}
-				{disabled}
-			/>
-		{/if}
-	</label>
-</Block>
+	{#if lines === 1 && max_lines === 1}
+		<input
+			data-testid="textbox"
+			type="text"
+			class="scroll-hide block gr-box gr-input w-full gr-text-input {classes}"
+			bind:value
+			bind:this={el}
+			{placeholder}
+			{disabled}
+			on:keypress={handle_keypress}
+		/>
+	{:else}
+		<textarea
+			data-testid="textbox"
+			use:text_area_resize={value}
+			class="scroll-hide block gr-box gr-input w-full gr-text-input {classes}"
+			bind:value
+			bind:this={el}
+			{placeholder}
+			rows={lines}
+			{disabled}
+		/>
+	{/if}
+</label>

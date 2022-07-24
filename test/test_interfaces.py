@@ -7,9 +7,11 @@ from contextlib import contextmanager
 import mlflow
 import requests
 import wandb
+from fastapi.testclient import TestClient
 
-from gradio.blocks import Blocks, TabItem, Tabs
+from gradio.blocks import Blocks
 from gradio.interface import Interface, TabbedInterface, close_all, os
+from gradio.layouts import TabItem, Tabs
 from gradio.utils import assert_configs_are_equivalent_besides_ids
 
 os.environ["GRADIO_ANALYTICS_ENABLED"] = "False"
@@ -42,8 +44,8 @@ class TestInterface(unittest.TestCase):
         close_all()
         interface.close.assert_called()
 
-    def test_examples_invalid_input(self):
-        with self.assertRaises(ValueError):
+    def test_no_input_or_output(self):
+        with self.assertRaises(TypeError):
             Interface(lambda x: x, examples=1234)
 
     def test_examples_valid_path(self):
@@ -118,8 +120,8 @@ class TestInterface(unittest.TestCase):
         examples = ["test1", "test2"]
         interface = Interface(lambda x: x, "textbox", "label", examples=examples)
         interface.launch(prevent_thread_lock=True)
-        self.assertEqual(len(interface.examples), 2)
-        self.assertEqual(len(interface.examples[0]), 1)
+        self.assertEqual(len(interface.examples_handler.examples), 2)
+        self.assertEqual(len(interface.examples_handler.examples[0]), 1)
         interface.close()
 
     @mock.patch("IPython.display.display")
@@ -127,7 +129,7 @@ class TestInterface(unittest.TestCase):
         interface = Interface(lambda x: x, "textbox", "label")
         interface.launch(inline=True, prevent_thread_lock=True)
         mock_display.assert_called_once()
-        interface.launch(inline=True, share=True, prevent_thread_lock=True)
+        interface.launch(inline=True, prevent_thread_lock=True)
         self.assertEqual(mock_display.call_count, 2)
         interface.close()
 
@@ -168,7 +170,10 @@ class TestInterface(unittest.TestCase):
             wandb.log = mock.MagicMock()
             wandb.Html = mock.MagicMock()
             interface = Interface(lambda x: x, "textbox", "label")
+            interface.width = 500
+            interface.height = 500
             interface.integrate(wandb=wandb)
+
             self.assertEqual(
                 out.getvalue().strip(),
                 "The WandB integration requires you to `launch(share=True)` first.",
@@ -194,9 +199,9 @@ class TestTabbedInterface(unittest.TestCase):
         with Blocks() as demo:
             with Tabs():
                 with TabItem(label="tab1"):
-                    interface1.render_basic_interface()
+                    interface1.render()
                 with TabItem(label="tab2"):
-                    interface2.render_basic_interface()
+                    interface2.render()
 
         interface3 = Interface(lambda x: x, "textbox", "textbox")
         interface4 = Interface(lambda x: x, "image", "image")
@@ -207,6 +212,46 @@ class TestTabbedInterface(unittest.TestCase):
                 demo.get_config_file(), tabbed_interface.get_config_file()
             )
         )
+
+
+class TestDeprecatedInterface(unittest.TestCase):
+    def test_deprecation_notice(self):
+        with self.assertWarns(Warning):
+            _ = Interface(lambda x: x, "textbox", "textbox", verbose=True)
+
+
+class TestInterfaceInterpretation(unittest.TestCase):
+    def test_interpretation_from_interface(self):
+        def quadratic(num1: float, num2: float) -> float:
+            return 3 * num1**2 + num2
+
+        iface = Interface(
+            fn=quadratic,
+            inputs=["number", "number"],
+            outputs="number",
+            interpretation="default",
+        )
+
+        app, _, _ = iface.launch(prevent_thread_lock=True)
+        client = TestClient(app)
+
+        btn = next(
+            c["id"]
+            for c in iface.config["components"]
+            if c["props"].get("value") == "Interpret"
+        )
+        fn_index = next(
+            i
+            for i, d in enumerate(iface.config["dependencies"])
+            if d["targets"] == [btn]
+        )
+
+        response = client.post(
+            "/api/predict/", json={"fn_index": fn_index, "data": [10, 50, 350]}
+        )
+        self.assertTrue(response.json()["data"][0]["interpretation"] is not None)
+        iface.close()
+        close_all()
 
 
 if __name__ == "__main__":

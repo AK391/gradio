@@ -9,6 +9,7 @@
 		["one", "1"],
 		["two", "2"],
 		["three", "3"],
+		["The", null],
 		["two", "2"],
 		["three", "3"]
 	]}
@@ -17,11 +18,11 @@
 <h2 class="my-2">Without legend</h2>
 <HighlightedText
 	value={[
-		["one", "1"],
-		["two", "2"],
-		["three", "3"],
-		["two", "2"],
-		["three", "3"]
+		["Frank ", "Name"],
+		["lives in ", null],
+		["Paris", "Loc"],
+		[" and is aged ", null],
+		["37", "Age"]
 	]}
 />
 
@@ -35,7 +36,7 @@
 		["two", "+"],
 		["three", "-"]
 	]}
-	color_map={{ "+": "limegreen", "-": "crimson" }}
+	color_map={{ "+": "green", "-": "red" }}
 />
 
 <h2 class="my-2">Custom color_map without legend</h2>
@@ -47,5 +48,5 @@
 		["two", "+"],
 		["three", "-"]
 	]}
-	color_map={{ "+": "limegreen", "-": "crimson" }}
+	color_map={{ "+": "orange", "-": "purple" }}
 />

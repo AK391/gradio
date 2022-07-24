@@ -1,21 +1,27 @@
 <script>
+	// @ts-nocheck
+
 	import { onMount, onDestroy, createEventDispatcher } from "svelte";
+	import { fade } from "svelte/transition";
 	import { LazyBrush } from "lazy-brush/src";
 	import ResizeObserver from "resize-observer-polyfill";
 
 	const dispatch = createEventDispatcher();
 
 	export let value;
+	export let mode = "sketch";
+	export let brush_color = "#0b0f19";
+	export let brush_radius = 50;
+
+	export let width = undefined;
+	export let height = undefined;
 
 	let mounted;
 
-	let brush_radius = 50;
-	let brush_color = "#444";
 	let catenary_color = "#aaa";
-	let background_color = "#FFF";
 
-	let canvas_width = 400;
-	let canvas_height = 400;
+	let canvas_width = width || 400;
+	let canvas_height = height || 400;
 
 	$: mounted && !value && clear();
 
@@ -38,6 +44,14 @@
 		{
 			name: "temp",
 			zIndex: 12
+		},
+		{
+			name: "mask",
+			zIndex: -1
+		},
+		{
+			name: "temp_fake",
+			zIndex: -2
 		}
 	];
 
@@ -49,12 +63,19 @@
 	let values_changed = true;
 	let is_drawing = false;
 	let is_pressing = false;
-	let show_placeholder = false;
 	let lazy = null;
 	let chain_length = null;
 	let canvas_container = null;
 	let canvas_observer = null;
 	let save_data = "";
+	let line_count = 0;
+
+	let display_natural_ratio = 1;
+
+	function calculate_ratio() {
+		const x = canvas.interface.getBoundingClientRect();
+		display_natural_ratio = width / x.width;
+	}
 
 	onMount(() => {
 		Object.keys(canvas).forEach((key) => {
@@ -69,10 +90,14 @@
 			}
 		});
 		chain_length = brush_radius;
-		canvas_observer = new ResizeObserver((entries, observer) =>
-			handle_canvas_resize(entries, observer)
-		);
+
+		canvas_observer = new ResizeObserver((entries, observer) => {
+			handle_canvas_resize(entries, observer);
+
+			calculate_ratio();
+		});
 		canvas_observer.observe(canvas_container);
+
 		loop();
 		mounted = true;
 		window.setTimeout(() => {
@@ -88,6 +113,8 @@
 				load_save_data(save_data);
 			}
 		}, 100);
+
+		calculate_ratio();
 	});
 
 	onDestroy(() => {
@@ -99,6 +126,7 @@
 		const _lines = lines.slice(0, -1);
 		clear();
 		draw_lines({ lines: _lines });
+		line_count = lines.length;
 		trigger_on_change();
 	}
 
@@ -148,21 +176,33 @@
 				brush_color,
 				brush_radius
 			});
+
+			if (mode === "mask") {
+				draw_fake_points({
+					points: points,
+					brush_color,
+					brush_radius
+				});
+			}
+
 			points = _points;
 			saveLine({ brush_color, brush_radius });
+			if (mode === "mask") {
+				save_mask_line();
+			}
 			return;
 		});
 	};
 
 	let handle_draw_start = (e) => {
 		e.preventDefault();
-		show_placeholder = true;
 		is_pressing = true;
 		const { x, y } = get_pointer_pos(e);
 		if (e.touches && e.touches.length > 0) {
 			lazy.update({ x, y }, { both: true });
 		}
 		handle_pointer_move(x, y);
+		line_count += 1;
 	};
 
 	let handle_draw_move = (e) => {
@@ -177,6 +217,10 @@
 		is_drawing = false;
 		is_pressing = false;
 		saveLine();
+
+		if (mode === "mask") {
+			save_mask_line();
+		}
 	};
 
 	let handle_canvas_resize = (entries) => {
@@ -186,16 +230,22 @@
 			set_canvas_size(canvas.interface, width, height);
 			set_canvas_size(canvas.drawing, width, height);
 			set_canvas_size(canvas.temp, width, height);
+			set_canvas_size(canvas.temp_fake, width, height);
+			set_canvas_size(canvas.mask, width, height);
+
 			loop({ once: true });
 		}
 		load_save_data(save_data, true);
 	};
 
-	let set_canvas_size = (canvas, width, height) => {
-		canvas.width = width * 3;
-		canvas.height = height * 3;
-		canvas.style.width = width;
-		canvas.style.height = height;
+	let set_canvas_size = (canvas, _width, _height) => {
+		canvas.width = width || _width * 3;
+		canvas.height = height || _height * 3;
+		if (mode === "sketch") {
+		}
+
+		canvas.style.width = mode === "mask" ? "auto" : _width;
+		canvas.style.height = mode === "mask" ? "100%" : _height;
 	};
 
 	let get_pointer_pos = (e) => {
@@ -214,7 +264,11 @@
 	};
 
 	let handle_pointer_move = (x, y) => {
-		lazy.update({ x: x * 3, y: y * 3 });
+		lazy.update(
+			mode === "sketch"
+				? { x: x * 3, y: y * 3 }
+				: { x: x * display_natural_ratio, y: y * display_natural_ratio }
+		);
 		const is_disabled = !lazy.isEnabled();
 		if ((is_pressing && !is_drawing) || (is_disabled && is_pressing)) {
 			is_drawing = true;
@@ -228,6 +282,14 @@
 				brush_color,
 				brush_radius
 			});
+
+			if (mode === "mask") {
+				draw_fake_points({
+					points: points,
+					brush_color,
+					brush_radius
+				});
+			}
 		}
 		mouse_has_moved = true;
 	};
@@ -253,6 +315,50 @@
 		ctx.temp.stroke();
 	};
 
+	let draw_fake_points = ({ points, brush_color, brush_radius }) => {
+		ctx.temp_fake.lineJoin = "round";
+		ctx.temp_fake.lineCap = "round";
+		ctx.temp_fake.strokeStyle = "#fff";
+		ctx.temp_fake.clearRect(
+			0,
+			0,
+			ctx.temp.canvas.width,
+			ctx.temp.canvas.height
+		);
+		ctx.temp_fake.lineWidth = brush_radius;
+		let p1 = points[0];
+		let p2 = points[1];
+		ctx.temp_fake.moveTo(p2.x, p2.y);
+		ctx.temp_fake.beginPath();
+		for (var i = 1, len = points.length; i < len; i++) {
+			var midPoint = mid_point(p1, p2);
+			ctx.temp_fake.quadraticCurveTo(p1.x, p1.y, midPoint.x, midPoint.y);
+			p1 = points[i];
+			p2 = points[i + 1];
+		}
+
+		ctx.temp_fake.lineTo(p1.x, p1.y);
+		ctx.temp_fake.stroke();
+	};
+
+	let save_mask_line = () => {
+		// if (points.length < 2) return;
+
+		lines.push({
+			points: [...points],
+			brush_color: "#fff",
+			brush_radius
+		});
+
+		points.length = 0;
+		const width = canvas.temp_fake.width;
+		const height = canvas.temp_fake.height;
+		ctx.mask.drawImage(canvas.temp_fake, 0, 0, width, height);
+
+		ctx.temp_fake.clearRect(0, 0, width, height);
+		trigger_on_change();
+	};
+
 	let saveLine = () => {
 		if (points.length < 2) return;
 
@@ -275,13 +381,26 @@
 	};
 
 	export function clear() {
-		show_placeholder = false;
 		lines = [];
 		values_changed = true;
 		ctx.drawing.clearRect(0, 0, canvas.drawing.width, canvas.drawing.height);
 		ctx.temp.clearRect(0, 0, canvas.temp.width, canvas.temp.height);
-		ctx.drawing.fillStyle = "#FFFFFF";
+
+		ctx.drawing.fillStyle = mode === "sketch" ? "#FFFFFF" : "transparent";
 		ctx.drawing.fillRect(0, 0, canvas.drawing.width, canvas.drawing.height);
+		if (mode === "mask") {
+			ctx.temp_fake.clearRect(
+				0,
+				0,
+				canvas.temp_fake.width,
+				canvas.temp_fake.height
+			);
+			ctx.mask.clearRect(0, 0, canvas.temp_fake.width, canvas.temp_fake.height);
+			ctx.mask.fillStyle = "#000";
+			ctx.mask.fillRect(0, 0, canvas.mask.width, canvas.mask.height);
+		}
+
+		line_count = 0;
 	}
 
 	let loop = ({ once = false } = {}) => {
@@ -332,19 +451,21 @@
 	};
 
 	export function get_image_data() {
-		return canvas.drawing.toDataURL("image/png");
+		return mode === "mask"
+			? canvas.mask.toDataURL("image/png")
+			: canvas.drawing.toDataURL("image/png");
 	}
 </script>
 
 <div
-	class="touch-none relative"
-	style="height:100%; width:100%; background-color:{background_color}"
+	class="touch-none relative h-full w-full"
 	bind:this={canvas_container}
 	bind:offsetWidth={canvas_width}
 	bind:offsetHeight={canvas_height}
 >
-	{#if !show_placeholder}
+	{#if line_count === 0}
 		<div
+			transition:fade={{ duration: 50 }}
 			class="absolute inset-0 flex items-center justify-center z-40 pointer-events-none touch-none text-gray-400 md:text-xl"
 		>
 			Start drawing
@@ -353,12 +474,17 @@
 	{#each canvas_types as { name, zIndex }}
 		<canvas
 			key={name}
-			style="display:block;position:absolute; z-index:{zIndex}; width: {canvas_width}px; height: {canvas_height}px"
+			class="inset-0 m-auto"
+			style=" display:block;position:absolute; z-index:{zIndex}; width: {mode ===
+			'sketch'
+				? canvas_width
+				: width}px; height: {mode === 'sketch' ? canvas_height : height}px"
 			bind:this={canvas[name]}
 			on:mousedown={name === "interface" ? handle_draw_start : undefined}
 			on:mousemove={name === "interface" ? handle_draw_move : undefined}
 			on:mouseup={name === "interface" ? handle_draw_end : undefined}
 			on:mouseout={name === "interface" ? handle_draw_end : undefined}
+			on:blur={name === "interface" ? handle_draw_end : undefined}
 			on:touchstart={name === "interface" ? handle_draw_start : undefined}
 			on:touchmove={name === "interface" ? handle_draw_move : undefined}
 			on:touchend={name === "interface" ? handle_draw_end : undefined}

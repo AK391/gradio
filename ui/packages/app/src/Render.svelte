@@ -1,28 +1,30 @@
 <script lang="ts">
-	import { onMount, createEventDispatcher } from "svelte";
+	import { onMount, createEventDispatcher, setContext } from "svelte";
+	import type { ComponentMeta } from "./components/types";
 
 	export let root: string;
-	export let component;
-	export let instance_map;
+	export let component: !ComponentMeta["component"];
+	export let instance_map: Record<number, ComponentMeta>;
+
 	export let id: number;
-	export let props;
-	export let children;
-	export let theme;
+	export let props: ComponentMeta["props"];
+
+	export let children: ComponentMeta["children"];
 	export let dynamic_ids: Set<number>;
-	export let has_modes: boolean;
-	export let status_tracker_values: Record<number, string>;
+	export let has_modes: boolean | undefined;
+	export let parent: string | null = null;
 
 	const dispatch = createEventDispatcher<{ mount: number; destroy: number }>();
 
 	if (has_modes) {
-		if (props.interactive === false) {
-			props.mode = "static";
-		} else if (props.interactive === true) {
-			props.mode = "dynamic";
+		if ((props as any).interactive === false) {
+			(props as any).mode = "static";
+		} else if ((props as any).interactive === true) {
+			(props as any).mode = "dynamic";
 		} else if (dynamic_ids.has(id)) {
-			props.mode = "dynamic";
+			(props as any).mode = "dynamic";
 		} else {
-			props.mode = "static";
+			(props as any).mode = "static";
 		}
 	}
 
@@ -31,12 +33,6 @@
 
 		return () => dispatch("destroy", id);
 	});
-
-	let style = props.css
-		? Object.entries(props.css)
-				.map((rule) => rule[0] + ": " + rule[1])
-				.join("; ")
-		: null;
 
 	const forms = [
 		"textbox",
@@ -48,15 +44,20 @@
 		"dropdown"
 	];
 
-	function get_types(i) {
-		const current = children[i]?.id && instance_map[children[i].id];
-		const next = children[i + 1]?.id && instance_map[children[i + 1].id];
-		const prev = children[i - 1]?.id && instance_map[children[i - 1].id];
+	function get_types(i: number) {
+		if (!children) return;
+
+		const current =
+			children[i]?.id != undefined && instance_map[children[i].id];
+		const next =
+			children[i + 1]?.id != undefined && instance_map[children[i + 1].id];
+		const prev =
+			children[i - 1]?.id != undefined && instance_map[children[i - 1].id];
 
 		return {
-			current: current?.type && forms.includes(current.type),
-			next: next?.type && forms.includes(next.type),
-			prev: prev?.type && forms.includes(prev.type)
+			current: current && current?.type && forms.includes(current.type),
+			next: next && next?.type && forms.includes(next.type),
+			prev: prev && prev?.type && forms.includes(prev.type)
 		};
 	}
 
@@ -66,8 +67,8 @@
 		});
 	}
 
-	function get_form_context(node, i) {
-		const { current, next, prev } = get_types(i);
+	function get_form_context(node: ComponentMeta, i: number) {
+		const { current, next, prev } = get_types(i) || {};
 
 		if (current && next && prev) {
 			node.props.form_position = "mid";
@@ -79,30 +80,41 @@
 			node.props.form_position = "single";
 		}
 	}
+
+	$: children =
+		children &&
+		children.filter((v) => instance_map[v.id].type !== "statustracker");
+
+	setContext("BLOCK_KEY", parent);
+
+	function handle_prop_change(e: { detail: Record<string, any> }) {
+		for (const k in e.detail) {
+			instance_map[id].props[k] = e.detail[k];
+		}
+	}
 </script>
 
 <svelte:component
 	this={component}
 	bind:this={instance_map[id].instance}
-	bind:value={instance_map[id].value}
-	{style}
+	bind:value={instance_map[id].props.value}
+	elem_id={("elem_id" in props && props.elem_id) || `${id}`}
+	on:prop_change={handle_prop_change}
 	{...props}
 	{root}
-	tracked_status={status_tracker_values[id]}
 >
 	{#if children && children.length}
-		{#each children as { component, id, props, children, has_modes }}
+		{#each children as { component, id: each_id, props, children: _children, has_modes } (each_id)}
 			<svelte:self
+				parent={instance_map[id].type}
 				{component}
-				{id}
+				id={each_id}
 				{props}
-				{theme}
 				{root}
 				{instance_map}
-				{children}
+				children={_children}
 				{dynamic_ids}
 				{has_modes}
-				{status_tracker_values}
 				on:destroy
 				on:mount
 			/>

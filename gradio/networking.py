@@ -16,12 +16,11 @@ import requests
 import uvicorn
 
 from gradio import queueing
-from gradio.routes import create_app
+from gradio.routes import App
 from gradio.tunneling import create_tunnel
 
 if TYPE_CHECKING:  # Only import for type checking (to avoid circular imports).
     from gradio.blocks import Blocks
-
 
 # By default, the local server will try to open on localhost, port 7860.
 # If that is not available, then it will try 7861, 7862, ... 7959.
@@ -46,7 +45,7 @@ class Server(uvicorn.Server):
         self.thread.join()
 
 
-def get_first_available_port(initial: int, final: int) -> int:
+def get_first_available_port(initial: int, final: int, reuse_port: bool = False) -> int:
     """
     Gets the first open port in a specified range of port numbers
     Parameters:
@@ -58,6 +57,8 @@ def get_first_available_port(initial: int, final: int) -> int:
     for port in range(initial, final):
         try:
             s = socket.socket()  # create a socket object
+            if reuse_port:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.bind((LOCALHOST_NAME, port))  # Bind to the port
             s.close()
             return port
@@ -65,9 +66,25 @@ def get_first_available_port(initial: int, final: int) -> int:
             pass
     raise OSError(
         "All ports from {} to {} are in use. Please close a port.".format(
-            initial, final
+            initial, final - 1
         )
     )
+
+
+def configure_app(app: fastapi.FastAPI, blocks: Blocks) -> fastapi.FastAPI:
+    auth = blocks.auth
+    if auth is not None:
+        if not callable(auth):
+            app.auth = {account[0]: account[1] for account in auth}
+        else:
+            app.auth = auth
+    else:
+        app.auth = None
+    app.blocks = blocks
+    app.cwd = os.getcwd()
+    app.favicon_path = blocks.favicon_path
+    app.tokens = {}
+    return app
 
 
 def start_server(
@@ -123,23 +140,10 @@ def start_server(
     else:
         path_to_local_server = "http://{}:{}/".format(url_host_name, port)
 
-    auth = blocks.auth
-    app = create_app()
-
-    if auth is not None:
-        if not callable(auth):
-            app.auth = {account[0]: account[1] for account in auth}
-        else:
-            app.auth = auth
-    else:
-        app.auth = None
-    app.blocks = blocks
-    app.cwd = os.getcwd()
-    app.favicon_path = blocks.favicon_path
-    app.tokens = {}
+    app = App.create_app(blocks)
 
     if app.blocks.enable_queue:
-        if auth is not None or app.blocks.encrypt:
+        if blocks.auth is not None or app.blocks.encrypt:
             raise ValueError("Cannot queue with encryption or authentication enabled.")
         queueing.init()
         app.queue_thread = threading.Thread(
@@ -148,7 +152,6 @@ def start_server(
         app.queue_thread.start()
     if blocks.save_to is not None:  # Used for selenium tests
         blocks.save_to["port"] = port
-
     config = uvicorn.Config(
         app=app,
         port=port,

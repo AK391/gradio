@@ -4,9 +4,15 @@
 	import type { FileData } from "@gradio/upload";
 	import { Block, BlockLabel } from "@gradio/atoms";
 	import { Chart } from "@gradio/chart";
+
+	import StatusTracker from "../StatusTracker/StatusTracker.svelte";
+	import type { LoadingStatus } from "../StatusTracker/types";
 	import { _ } from "svelte-i18n";
 
-	import chart_icon from "./chart.svg";
+	import { Chart as ChartIcon } from "@gradio/icons";
+
+	import type { Styles } from "@gradio/utils";
+	export let style: Styles = {};
 
 	function format_value(val: StaticData) {
 		return val.data.map((r) =>
@@ -25,13 +31,17 @@
 		headers?: Array<string>;
 	}
 
+	export let elem_id: string = "";
+	export let visible: boolean = true;
 	export let value: null | Data;
-	export let default_value: null | Data;
-	export let style: string = "";
 	export let y: Array<string>;
 	export let x: string;
 	export let mode: "static" | "dynamic";
 	export let label: string;
+	export let show_label: boolean;
+	export let colors: Array<string>;
+
+	export let loading_status: LoadingStatus;
 
 	let _value: string | null;
 
@@ -105,19 +115,25 @@
 		mode === "static" && value && format_value(value as StaticData);
 
 	$: value, dispatch("change");
-
-	if (default_value) value = default_value;
 </script>
 
-<Block variant={"solid"} color={"grey"} padding={false}>
-	<BlockLabel image={chart_icon} label={label || "TimeSeries"} />
+<Block
+	{visible}
+	variant={mode === "dynamic" && !_value ? "dashed" : "solid"}
+	color={"grey"}
+	padding={false}
+	{elem_id}
+	style={{ rounded: style.rounded }}
+>
+	<BlockLabel {show_label} Icon={ChartIcon} label={label || "TimeSeries"} />
+	<StatusTracker {...loading_status} />
 
 	{#if mode === "static"}
 		{#if static_data}
-			<Chart value={static_data} />
+			<Chart value={static_data} {colors} />
 		{:else}
-			<div class="min-h-[16rem] flex justify-center items-center">
-				<img src={chart_icon} alt="" class="h-10 opacity-30" />
+			<div class="h-full min-h-[15rem] flex justify-center items-center">
+				<div class="h-5 dark:text-white opacity-50"><ChartIcon /></div>
 			</div>
 		{/if}
 	{:else if _value}
@@ -126,17 +142,19 @@
 			{y}
 			{x}
 			on:process={({ detail: { x, y } }) => (value = make_dict(x, y))}
+			{colors}
 		/>
-	{:else if value === null}
-		<Upload
-			filetype="text/csv"
-			on:load={({ detail }) => handle_load(detail)}
-			include_file_metadata={false}
-			{style}
-		>
-			{$_("interface.drop_csv")}
-			<br />- {$_("or")} -<br />
-			{$_("interface.click_to_upload")}
-		</Upload>
+	{:else if value === undefined}
+		<div class="h-full min-h-[8rem]">
+			<Upload
+				filetype="text/csv"
+				on:load={({ detail }) => handle_load(detail)}
+				include_file_metadata={false}
+			>
+				{$_("interface.drop_csv")}
+				<br />- {$_("or")} -<br />
+				{$_("interface.click_to_upload")}
+			</Upload>
+		</div>
 	{/if}
 </Block>

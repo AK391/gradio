@@ -9,23 +9,24 @@
 <script lang="ts">
 	import { onDestroy, createEventDispatcher } from "svelte";
 	import { Upload, ModifyUpload } from "@gradio/upload";
-	import { Block, BlockLabel } from "@gradio/atoms";
-	//@ts-ignore
+	import { BlockLabel } from "@gradio/atoms";
+	import { Music } from "@gradio/icons";
+	// @ts-ignore
 	import Range from "svelte-range-slider-pips";
-
-	import audio_icon from "./music.svg";
 
 	export let value: null | { name: string; data: string } = null;
 	export let label: string;
-	export let style: string = "";
+	export let show_label: boolean;
 	export let name: string;
 	export let source: "microphone" | "upload" | "none";
+	export let pending: boolean = false;
+	export let streaming: boolean = false;
 	export let drop_text: string = "Drop an audio file";
 	export let or_text: string = "or";
 	export let upload_text: string = "click to upload";
 
 	// TODO: make use of this
-	export let type: "normal" | "numpy" = "normal";
+	// export let type: "normal" | "numpy" = "normal";
 
 	let recording = false;
 	let recorder: MediaRecorder;
@@ -38,17 +39,19 @@
 
 	const dispatch = createEventDispatcher<{
 		change: AudioData;
+		stream: AudioData;
 		edit: AudioData;
 		play: undefined;
 		pause: undefined;
 		ended: undefined;
+		drag: boolean;
 	}>();
 
 	function blob_to_data_url(blob: Blob): Promise<string> {
 		return new Promise((fulfill, reject) => {
 			let reader = new FileReader();
 			reader.onerror = reject;
-			reader.onload = (e) => fulfill(reader.result as string);
+			reader.onload = () => fulfill(reader.result as string);
 			reader.readAsDataURL(blob);
 		});
 	}
@@ -62,17 +65,18 @@
 		});
 
 		recorder.addEventListener("stop", async () => {
-			recording = false;
+			if (!streaming) {
+				recording = false;
+			}
 			audio_blob = new Blob(audio_chunks, { type: "audio/wav" });
+			audio_chunks = [];
 			value = {
 				data: await blob_to_data_url(audio_blob),
 				name
 			};
-			dispatch("change", {
-				data: await blob_to_data_url(audio_blob),
-				name
-			});
+			dispatch(streaming ? "stream" : "change", value);
 		});
+		inited = true;
 	}
 
 	async function record() {
@@ -92,6 +96,9 @@
 
 	const stop = () => {
 		recorder.stop();
+		if (streaming) {
+			recording = false;
+		}
 	};
 
 	function clear() {
@@ -148,78 +155,87 @@
 	}
 
 	export let dragging = false;
+	$: dispatch("drag", dragging);
+
+	if (streaming) {
+		window.setInterval(() => {
+			if (
+				recording &&
+				recorder &&
+				recorder.state === "recording" &&
+				pending === false
+			) {
+				stop();
+				record();
+			}
+		}, 500);
+	}
 </script>
 
-<Block
-	variant={value === null && source === "upload" ? "dashed" : "solid"}
-	color={dragging ? "green" : "grey"}
-	padding={false}
->
-	<BlockLabel image={audio_icon} label={label || "Audio"} />
-	{#if value === null}
-		{#if source === "microphone"}
-			<div class="mt-6 p-2">
-				{#if recording}
-					<button class="gr-button !bg-red-500/10" on:click={stop}>
-						<span class="flex h-1.5 w-1.5 relative mr-2">
-							<span
-								class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"
-							/>
-							<span
-								class="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"
-							/>
-						</span>
-						<div class="whitespace-nowrap text-red-500">Stop recording</div>
-					</button>
-				{:else}
-					<button class="gr-button" on:click={record}>
-						<span class="flex h-1.5 w-1.5 relative mr-2">
-							<span
-								class="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"
-							/>
-						</span>
-						<div class="whitespace-nowrap">Record from microphone</div>
-					</button>
-				{/if}
+<BlockLabel {show_label} Icon={Music} label={label || "Audio"} />
+{#if value === null || streaming}
+	{#if source === "microphone"}
+		<div class="mt-6 p-2">
+			{#if recording}
+				<button class="gr-button !bg-red-500/10" on:click={stop}>
+					<span class="flex h-1.5 w-1.5 relative mr-2 ">
+						<span
+							class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"
+						/>
+						<span
+							class="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"
+						/>
+					</span>
+					<div class="whitespace-nowrap text-red-500">Stop recording</div>
+				</button>
+			{:else}
+				<button class="gr-button text-gray-800" on:click={record}>
+					<span class="flex h-1.5 w-1.5 relative mr-2">
+						<span
+							class="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"
+						/>
+					</span>
+					<div class="whitespace-nowrap">Record from microphone</div>
+				</button>
+			{/if}
+		</div>
+	{:else if source === "upload"}
+		<Upload filetype="audio/*" on:load={handle_load} bind:dragging>
+			<div class="flex flex-col">
+				{drop_text}
+				<span class="text-gray-300">- {or_text} -</span>
+				{upload_text}
 			</div>
-		{:else if source === "upload"}
-			<Upload filetype="audio/*" on:load={handle_load} bind:dragging>
-				<div class="flex flex-col">
-					{drop_text}
-					<span class="text-gray-300">- {or_text} -</span>
-					{upload_text}
-				</div>
-			</Upload>
-		{/if}
-	{:else}
-		<ModifyUpload
-			on:clear={clear}
-			on:edit={() => (mode = "edit")}
-			editable
-			absolute={false}
-		/>
-
-		<audio
-			use:loaded
-			class="w-full h-14 p-2"
-			controls
-			bind:this={player}
-			preload="metadata"
-			src={value.data}
-			on:play
-			on:pause
-			on:ended
-		/>
-
-		{#if mode === "edit" && player?.duration}
-			<Range
-				bind:values={crop_values}
-				range
-				min={0}
-				max={100}
-				step={1}
-				on:change={handle_change}
-			/>
-		{/if}
+		</Upload>
 	{/if}
-</Block>
+{:else}
+	<ModifyUpload
+		on:clear={clear}
+		on:edit={() => (mode = "edit")}
+		editable
+		absolute={false}
+	/>
+
+	<audio
+		use:loaded
+		class="w-full h-14 p-2"
+		controls
+		bind:this={player}
+		preload="metadata"
+		src={value.data}
+		on:play
+		on:pause
+		on:ended
+	/>
+
+	{#if mode === "edit" && player?.duration}
+		<Range
+			bind:values={crop_values}
+			range
+			min={0}
+			max={100}
+			step={1}
+			on:change={handle_change}
+		/>
+	{/if}
+{/if}

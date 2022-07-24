@@ -1,18 +1,21 @@
 # Don't forget to run bash scripts/create_test_requirements.sh from unix or wsl when you update this file.
+asyncio
 IPython
 comet_ml
 coverage
 mlflow
-tensorflow
+torch
 transformers
-selenium==4.0.0a6.post2
 scikit-image
 shap
 pytest
 wandb
 huggingface_hub
 pytest-cov
+pytest-asyncio
 black
 isort
 flake8
-torch
+httpx
+pydantic
+respx

@@ -1,6 +1,5 @@
 import gradio as gr
 
-
 def calculator(num1, operation, num2):
     if operation == "add":
         return num1 + num2
@@ -14,7 +13,7 @@ def calculator(num1, operation, num2):
 
 demo = gr.Interface(
     calculator,
-    ["number", gr.Radio(["add", "subtract", "multiply", "divide"]), "number"],
+    [gr.Number(value=4), gr.Radio(["add", "subtract", "multiply", "divide"]), "number"],
     "number",
     examples=[
         [5, "add", 3],
@@ -24,7 +23,6 @@ demo = gr.Interface(
     ],
     title="test calculator",
     description="heres a sample toy calculator. enjoy!",
-    flagging_options=["this", "or", "that"],
 )
 
 if __name__ == "__main__":

@@ -6,13 +6,17 @@ RUN mkdir gradio
 RUN pip install numpy matplotlib
 WORKDIR /gradio
 COPY ./gradio ./gradio
+COPY ./requirements.txt ./requirements.txt
 COPY ./setup.py ./setup.py
 COPY ./MANIFEST.in ./MANIFEST.in
+COPY ./README.md ./README.md
+COPY ./test ./test
 RUN python setup.py install
 WORKDIR /gradio
 COPY ./website ./website
 COPY ./demo ./demo
 COPY ./guides ./guides
+COPY ./gradio/components.py ./gradio/components.py
 WORKDIR /gradio/website/demos
 RUN pip install -r requirements.txt
 RUN python map_demos.py

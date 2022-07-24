@@ -8,14 +8,14 @@
 
 <script lang="ts">
 	import { createEventDispatcher } from "svelte";
-	import { Block, BlockLabel } from "@gradio/atoms";
+	import { BlockLabel } from "@gradio/atoms";
 
-	import audio_icon from "./music.svg";
+	import { Music } from "@gradio/icons";
 
 	export let value: null | { name: string; data: string } = null;
 	export let label: string;
-	export let style: string = "";
 	export let name: string;
+	export let show_label: boolean;
 
 	const dispatch = createEventDispatcher<{
 		change: AudioData;
@@ -31,21 +31,20 @@
 		});
 </script>
 
-<Block variant={"solid"} color={"grey"} padding={false}>
-	<BlockLabel image={audio_icon} label={label || "Audio"} />
-	{#if value === null}
-		<div class="min-h-[8rem] flex justify-center items-center">
-			<img src={audio_icon} alt="" class="h-6 opacity-20" />
-		</div>
-	{:else}
-		<audio
-			class="w-full h-14 p-2 mt-7"
-			controls
-			preload="metadata"
-			src={value.data}
-			on:play
-			on:pause
-			on:ended
-		/>
-	{/if}
-</Block>
+<BlockLabel {show_label} Icon={Music} label={label || "Audio"} />
+{#if value === null}
+	<div class="h-full min-h-[8rem] flex justify-center items-center">
+		<!-- <img src={audio_icon} alt="" class="h-6 opacity-20" /> -->
+		<div class="h-5 dark:text-white opacity-50"><Music /></div>
+	</div>
+{:else}
+	<audio
+		class="w-full h-14 p-2 mt-7"
+		controls
+		preload="metadata"
+		src={value.data}
+		on:play
+		on:pause
+		on:ended
+	/>
+{/if}

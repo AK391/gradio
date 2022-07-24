@@ -1,7 +1,8 @@
 # Building a Pictionary App
 
-related_spaces: https://huggingface.co/spaces/nateraw/quickdraw
-tags: SKETCHPAD, LABELS, LIVE
+Related spaces: https://huggingface.co/spaces/nateraw/quickdraw
+Tags: SKETCHPAD, LABELS, LIVE
+Docs: image, label
 
 ## Introduction
 

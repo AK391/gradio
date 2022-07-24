@@ -1,11 +1,26 @@
 <script lang="ts">
 	import { Plot } from "@gradio/plot";
 
-	export let value: null | string = null;
-	export let default_value: null | string = null;
-	export let style: string = "";
+	import { Block, BlockLabel } from "@gradio/atoms";
+	import { Plot as PlotIcon } from "@gradio/icons";
 
-	if (default_value) value = default_value;
+	import StatusTracker from "../StatusTracker/StatusTracker.svelte";
+	import type { LoadingStatus } from "../StatusTracker/types";
+	import { _ } from "svelte-i18n";
+
+	export let value: null | string = null;
+	export let elem_id: string = "";
+	export let visible: boolean = true;
+
+	export let loading_status: LoadingStatus;
+	export let label: string;
+	export let show_label: boolean;
 </script>
 
-<Plot {value} {style} on:change />
+<Block padding={false} {elem_id} {visible}>
+	<BlockLabel {show_label} label={label || "Plot"} Icon={PlotIcon} />
+
+	<StatusTracker {...loading_status} />
+
+	<Plot {value} on:change />
+</Block>

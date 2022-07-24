@@ -5,12 +5,12 @@ import time
 
 def xray_model(diseases, img):
     time.sleep(4)
-    return {disease: random.random() for disease in diseases}
+    return [{disease: random.random() for disease in diseases}]
 
 
 def ct_model(diseases, img):
     time.sleep(3)
-    return {disease: 0.1 for disease in diseases}
+    return [{disease: 0.1 for disease in diseases}]
 
 
 with gr.Blocks() as demo:
@@ -27,7 +27,7 @@ With this model you can lorem ipsum
     )
 
     with gr.Tabs():
-        with gr.TabItem("X-ray"):
+        with gr.TabItem("X-ray") as x_tab:
             with gr.Row():
                 xray_scan = gr.Image()
                 xray_results = gr.JSON()
@@ -38,6 +38,7 @@ With this model you can lorem ipsum
                 inputs=[disease, xray_scan],
                 outputs=xray_results,
                 status_tracker=xray_progress,
+                api_name="xray_model"
             )
 
         with gr.TabItem("CT Scan"):
@@ -51,6 +52,7 @@ With this model you can lorem ipsum
                 inputs=[disease, ct_scan],
                 outputs=ct_results,
                 status_tracker=ct_progress,
+                api_name="ct_model"
             )
 
     upload_btn = gr.Button("Upload Results")

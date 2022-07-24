@@ -1,3 +1,4 @@
+import os
 import json
 
 import numpy as np
@@ -40,9 +41,13 @@ def fn(
         },  # Label
         (audio1[0], np.flipud(audio1[1]))
         if audio1 is not None
-        else "files/cantina.wav",  # Audio
-        np.flipud(im1) if im1 is not None else "files/cheetah1.jpg",  # Image
-        video if video is not None else "files/world.mp4",  # Video
+        else os.path.join(os.path.dirname(__file__), "files/cantina.wav"),  # Audio
+        np.flipud(im1)
+        if im1 is not None
+        else os.path.join(os.path.dirname(__file__), "files/cheetah1.jpg"),  # Image
+        video
+        if video is not None
+        else os.path.join(os.path.dirname(__file__), "files/world.mp4"),  # Video
         [
             ("The", "art"),
             ("quick brown", "adj"),
@@ -72,12 +77,9 @@ def fn(
         "<button style='background-color: red'>Click Me: "
         + radio
         + "</button>",  # HTML
-        "files/titanic.csv",
+        os.path.join(os.path.dirname(__file__), "files/titanic.csv"),
         df1,  # Dataframe
         np.random.randint(0, 10, (4, 4)),  # Dataframe
-        [
-            im for im in [im1, im2, im3, im4, "files/cheetah1.jpg"] if im is not None
-        ],  # Carousel
         df2,  # Timeseries
     )
 
@@ -85,16 +87,16 @@ def fn(
 demo = gr.Interface(
     fn,
     inputs=[
-        gr.Textbox(default_value="Lorem ipsum", label="Textbox"),
+        gr.Textbox(value="Lorem ipsum", label="Textbox"),
         gr.Textbox(lines=3, placeholder="Type here..", label="Textbox 2"),
-        gr.Number(label="Number", default=42),
-        gr.Slider(minimum=10, maximum=20, default_value=15, label="Slider: 10 - 20"),
+        gr.Number(label="Number", value=42),
+        gr.Slider(10, 20, value=15, label="Slider: 10 - 20"),
         gr.Slider(maximum=20, step=0.04, label="Slider: step @ 0.04"),
         gr.Checkbox(label="Checkbox"),
         gr.CheckboxGroup(
-            label="CheckboxGroup", choices=CHOICES, default_selected=CHOICES[0:2]
+            label="CheckboxGroup", choices=CHOICES, value=CHOICES[0:2]
         ),
-        gr.Radio(label="Radio", choices=CHOICES, default_selected=CHOICES[2]),
+        gr.Radio(label="Radio", choices=CHOICES, value=CHOICES[2]),
         gr.Dropdown(label="Dropdown", choices=CHOICES),
         gr.Image(label="Image"),
         gr.Image(label="Image w/ Cropper", tool="select"),
@@ -105,7 +107,7 @@ demo = gr.Interface(
         gr.Audio(label="Microphone", source="microphone"),
         gr.File(label="File"),
         gr.Dataframe(label="Dataframe", headers=["Name", "Age", "Gender"]),
-        gr.Timeseries(x="time", y=["price", "value"]),
+        gr.Timeseries(x="time", y=["price", "value"], colors=["pink", "purple"]),
     ],
     outputs=[
         gr.Textbox(label="Textbox"),
@@ -122,7 +124,6 @@ demo = gr.Interface(
         gr.File(label="File"),
         gr.Dataframe(label="Dataframe"),
         gr.Dataframe(label="Numpy"),
-        gr.Carousel(components="image", label="Carousel"),
         gr.Timeseries(x="time", y=["price", "value"], label="Timeseries"),
     ],
     examples=[
@@ -136,16 +137,16 @@ demo = gr.Interface(
             ["foo", "baz"],
             "baz",
             "bar",
-            "files/cheetah1.jpg",
-            "files/cheetah1.jpg",
-            "files/cheetah1.jpg",
-            "files/cheetah1.jpg",
-            "files/world.mp4",
-            "files/cantina.wav",
-            "files/cantina.wav",
-            "files/titanic.csv",
+            os.path.join(os.path.dirname(__file__), "files/cheetah1.jpg"),
+            os.path.join(os.path.dirname(__file__), "files/cheetah1.jpg"),
+            os.path.join(os.path.dirname(__file__), "files/cheetah1.jpg"),
+            os.path.join(os.path.dirname(__file__), "files/cheetah1.jpg"),
+            os.path.join(os.path.dirname(__file__), "files/world.mp4"),
+            os.path.join(os.path.dirname(__file__), "files/cantina.wav"),
+            os.path.join(os.path.dirname(__file__), "files/cantina.wav"),
+            os.path.join(os.path.dirname(__file__), "files/titanic.csv"),
             [[1, 2, 3], [3, 4, 5]],
-            "files/time.csv",
+            os.path.join(os.path.dirname(__file__), "files/time.csv"),
         ]
     ]
     * 3,
